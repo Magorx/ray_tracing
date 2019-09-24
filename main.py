@@ -151,15 +151,17 @@ def trace(ray, objects, lights, depth=1):
             color = color + refcolor * intersection.obj.reflective
         light_effect = AMBIENT
         for light in lights:
-            p_o = light.o - intersection.p
-            if intersection.n.dot(p_o) < 0:
+            p_o = (light.o - intersection.p)
+            if intersection.n.dot(p_o) < 0 or test_ray(Ray(intersection.p + p_o.normal() * 0.0001, p_o.normal()), objects).d != -1:
                 continue
             else:
-                power = max(1.3 * intersection.n.normal().dot(p_o.normal()) / p_o.len() ** 0.14, AMBIENT)
+                lightIntensity = 200000.0/(4*3.1415*(light.o-intersection.p).len()**2)
+                power = max(intersection.n.dot((p_o).normal() * lightIntensity), AMBIENT)
+                power += intersection.obj.reflective ** (1 / p_o.normal().len())
                 if light_effect == AMBIENT:
                     light_effect = power
                 else:
-                    light_effect = 1.5 * light_effect + power * 0.5
+                    light_effect += power
         
         color = color * light_effect
                 
@@ -174,25 +176,37 @@ BACKGROUND = Vector(AMBIENT, AMBIENT, AMBIENT)
 
 
 def main():
-    m = 50
-    w = m
-    h = m
-    res = 16
-    img = Image.new('RGB', (int(w * res), int(h * res)))
-    c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
-    
-    objects = [Sphere(Vector(m + 2 * m - 10, m / 2, 0), m/3, Vector(0.3, 0.6, 0.6), 0), Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0), Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(1, 0.5, 0.25), 1), Sphere(Vector(m + 2 * m, 0, m), m / 3, Vector(0, 1, 0), 0.3)]
-    lights = [Light(Vector(m + 1.3* m, 0, 0), Vector(1, 1, 1))]#, Light(Vector(m + 1.3* m, 2 * m, 0), Vector(1, 1, 1))]
-    
-    for y in range(c.res_y):
-        if y % (c.res_y // (10)) == 0:
-            print(y / (c.res_y))
-        for x in range(c.res_x):
-            ray = c.get_ray(y, x)
-            color = trace(ray, objects, lights, depth=2)
-            img.putpixel((x, y), get_color(color))
-    img = img.resize((800, 800), Image.NEAREST)
-    img.show()
-    img.save('render.png')
+    for k in range(1):
+        print('render {}'.format(k))
+        m = 50
+        w = m
+        h = m
+        res = 4
+        img = Image.new('RGB', (int(w * res), int(h * res)))
+        c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
+        
+        objects = []
+        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0))
+        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0))
+        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0.5, 0.25, 0.125), 1))
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0))
+        
+        #objects = [Sphere(Vector(m, 0, 0), m / 4, Vector(0.3, 0.6, 0.6), 0), Sphere(Vector(m * 0.75, 0, -m * 0.15), m / 8, Vector(0.7, 0.2, 0.8), 0)]
+        #d = objects[0].c - objects[1].c
+        #objects[1].c += d * (0.05 * 10) - d * (0.05 * (k - 10))
+        lights = []
+        lights.append(Light(Vector(20, 0, -m-15), Vector(1, 1, 1)))
+        
+        for y in range(c.res_y):
+            if y % (c.res_y // (10)) == 0:
+                print(y / (c.res_y))
+            for x in range(c.res_x):
+                ray = c.get_ray(y, x)
+                color = trace(ray, objects, lights, depth=2)
+                img.putpixel((x, y), get_color(color))
+        size = max(500, m * res)
+        img = img.resize((size, size), Image.NEAREST)
+        img.show()
+        img.save('render{}.png'.format(k))
 
 main()
