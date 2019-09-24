@@ -238,7 +238,6 @@ def main():
                 img.putpixel((x, y), get_color(color))
         size = max(500, m * res)
         img = img.resize((size, size), Image.NEAREST)
-        img.show()
         img.save('render{}.png'.format(k))
 
 main()
