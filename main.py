@@ -171,7 +171,8 @@ def trace(ray, objects, lights, depth=1):
     if intersection.d == -1:
         return (AMBIENT, AMBIENT, AMBIENT)
     else:
-        color = intersection.obj.color
+        obj_color = intersection.obj.color
+        color = obj_color
         if depth and intersection.obj.reflective:
             refvec = (ray.d - intersection.n * 2 * ray.d.dot(intersection.n)).normal()
             refray = Ray(intersection.p + refvec * 0.0001, refvec) # bios to prevent ray hitting itselfs origin
@@ -184,9 +185,9 @@ def trace(ray, objects, lights, depth=1):
             d = test_ray(Ray(intersection.p + p_o.normal(), p_o.normal()), objects, intersection.obj).d
             if d != -1 and d < p_o.len():
                 if light_effect == Vector(-1, -1, -1):
-                    light_effect = Vector(AMBIENT, AMBIENT, AMBIENT)
+                    light_effect = Vector(AMBIENT, AMBIENT, AMBIENT) * light.color
                 else:
-                    light_effect += Vector(AMBIENT, AMBIENT, AMBIENT)
+                    light_effect = light_effect + Vector(AMBIENT, AMBIENT, AMBIENT) * light.color
             else:
                 refl = intersection.obj.reflective
                 lightIntensity = 200000.0/(4*3.1415*(light.o-intersection.p).len()**(2 - refl / 5))
@@ -216,25 +217,26 @@ def main():
         m = 50
         w = m
         h = m
-        res = 8
+        res = 16
         img = Image.new('RGB', (int(w * res), int(h * res)))
         c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0))
-        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0))
-        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0.5, 0.25, 0.125), 1))
-        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0))
+        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0)) # red sphere
+        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0.5, 0.25, 0.125), 1)) # orange-mirror sphere
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0)) # green sphere
         objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0))
         objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
-        #objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
+        objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
         
         #objects = [Sphere(Vector(m, 0, 0), m / 4, Vector(0.3, 0.6, 0.6), 0), Sphere(Vector(m * 0.75, 0, -m * 0.15), m / 8, Vector(0.7, 0.2, 0.8), 0)]
-        #d = objects[0].c - objects[1].c
-        #objects[1].c += d * (0.05 * 10) - d * (0.05 * (k - 10))
+        
         lights = []
-        lights.append(Light(Vector(20, -5, -m - 15), Vector(1, 0.2, 0.2)))
-        lights.append(Light(Vector(20, -5, +m + 15), Vector(0.2, 1, 1)))
+        lights.append(Light(Vector(20, -5, - m - 15), Vector(0.9, 0.17, 0.17)))
+        lights.append(Light(Vector(20, 10, + m + 15), Vector(0.17, 0.6, 0.8)))
+        #d = objects[3].c - lights[1].o
+        #lights[1].o = lights[1].o + d * 0.35      
         
         for y in range(c.res_y):
             if y % (c.res_y // (10)) == 0:
