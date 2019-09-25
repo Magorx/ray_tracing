@@ -217,16 +217,16 @@ def main():
         m = 50
         w = m
         h = m
-        res = 16
+        res = 28
         img = Image.new('RGB', (int(w * res), int(h * res)))
         c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0)) # blue sphere
-        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0)) # red sphere
-        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0.5, 0.25, 0.125), 1)) # orange-mirror sphere
-        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0)) # green sphere
-        objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0))
+        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0.1)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
+        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0.1)) # green sphere
+        objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
         objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
         objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
         
@@ -243,10 +243,11 @@ def main():
                 print(y / (c.res_y))
             for x in range(c.res_x):
                 ray = c.get_ray(y, x)
-                color = trace(ray, objects, lights, depth=2)
+                color = trace(ray, objects, lights, depth=4)
                 img.putpixel((x, y), get_color(color))
-        size = max(500, m * res)
-        img = img.resize((size, size), Image.NEAREST)
+
+        if m * res < 500:
+            img = img.resize((500, 500), Image.NEAREST)
         img.show()
         img.save('render{}.png'.format(k))
 
