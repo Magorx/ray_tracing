@@ -37,8 +37,11 @@ class Vector:
         return Vector(self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __mul__(self, other):
-        assert type(other) == float or type(other) == int
-        return Vector(self.x * other, self.y * other, self.z * other)
+        if isinstance(other, Vector):
+            return Vector(self.x * other.x, self.y * other.y, self.z * other.z)
+        else:
+            assert type(other) == float or type(other) == int
+            return Vector(self.x * other, self.y * other, self.z * other)
 
     def __pow__(self, other):
         return Vector(self.x ** other, self.y ** other, self.z ** other)
@@ -175,22 +178,25 @@ def trace(ray, objects, lights, depth=1):
             refcolor = trace(refray, objects, lights, depth - 1)
             refcolor = Vector(refcolor[0], refcolor[1], refcolor[2])
             color = color + refcolor * intersection.obj.reflective
-        light_effect = AMBIENT
+        light_effect = Vector(-1, -1, -1)
         for light in lights:
             p_o = (light.o - intersection.p)
             d = test_ray(Ray(intersection.p + p_o.normal(), p_o.normal()), objects, intersection.obj).d
             if d != -1 and d < p_o.len():
-                continue
+                if light_effect == Vector(-1, -1, -1):
+                    light_effect = Vector(AMBIENT, AMBIENT, AMBIENT)
+                else:
+                    light_effect += Vector(AMBIENT, AMBIENT, AMBIENT)
             else:
                 refl = intersection.obj.reflective
                 lightIntensity = 200000.0/(4*3.1415*(light.o-intersection.p).len()**(2 - refl / 5))
                 power = max(intersection.n.dot((p_o).normal() * lightIntensity), AMBIENT)
                 if power != AMBIENT:
                     power = power + refl * intersection.n.dot((p_o).normal()) ** (100 * refl)
-                if light_effect == AMBIENT:
-                    light_effect = power
+                if light_effect == Vector(-1, -1, -1):
+                    light_effect = light.color * power
                 else:
-                    light_effect += power
+                    light_effect  = light_effect + light.color * power
         
         color = color * light_effect
                 
@@ -210,7 +216,7 @@ def main():
         m = 50
         w = m
         h = m
-        res = 4
+        res = 8
         img = Image.new('RGB', (int(w * res), int(h * res)))
         c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
         
@@ -227,7 +233,8 @@ def main():
         #d = objects[0].c - objects[1].c
         #objects[1].c += d * (0.05 * 10) - d * (0.05 * (k - 10))
         lights = []
-        lights.append(Light(Vector(20, -5, -m - 15), Vector(1, 1, 1)))
+        lights.append(Light(Vector(20, -5, -m - 15), Vector(1, 0.2, 0.2)))
+        lights.append(Light(Vector(20, -5, +m + 15), Vector(0.2, 1, 1)))
         
         for y in range(c.res_y):
             if y % (c.res_y // (10)) == 0:
