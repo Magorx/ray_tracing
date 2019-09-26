@@ -1,6 +1,5 @@
 from math import sqrt
 from PIL import Image
-from time import time
 
 
 AMBIENT = 0.1
@@ -23,14 +22,11 @@ class Vector:
 
     def normal(self):
         l = self.len()
-        if l == 0:
-            return Vector(0, 0, 0)
-        else:
-            return Vector(self.x / l, self.y / l, self.z / l)
+        return Vector(self.x / l, self.y / l, self.z / l)
 
     def proection(self, other):
         return self.normal() * self.dot(other.normal()) * other.len()
-    
+
     def to_ints(self):
         return Vector(int(self.x), int(self.y), int(self.z))
 
@@ -56,14 +52,12 @@ class Vector:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y and self.z == other.z
 
-    def __lt__(self, other):
-        return self.x < other.x or self.y < other.y or self.z < other.z
 
 class Ray:
     def __init__(self, origin, direction):
         self.o = origin
         self.d = direction
-    
+
     def __repr__(self):
         return self.d.__repr__()
 
@@ -74,7 +68,7 @@ class Sphere:
         self.r = radius
         self.color = color
         self.reflective = reflective
-    
+
     def intersect(self, ray):
         c_o = ray.o - self.c
         q = self.r ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
@@ -84,17 +78,17 @@ class Sphere:
             d = -ray.d.dot(c_o)
             d1 = d - sqrt(q)
             d2 = d + sqrt(q)
-            
+
             if d1 > 0 and (d2 > d1 or d2 < 0):
                 d = d1
             elif d2 > 0 and (d1 > d2 or d1 < 0):
                 d = d2
             else:
                 return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
-            
+
             point = ray.o + ray.d * d
             return Intersection(point, d, self.normal(point), self)
-    
+
     def normal(self, other):
         return (other - self.c).normal()
 
@@ -105,7 +99,7 @@ class Plane:
         self.n = normal
         self.color = color
         self.reflective = reflective
-    
+
     def intersect(self, ray):
         d = self.n.dot(ray.d)
         if abs(d) < 0.000001:
@@ -124,35 +118,12 @@ class Intersection:
         self.d = distance
         self.n = normal
         self.obj = obj
-    
+
     def __eq__(self, other):
         return self.p == other.p and self.d == other.d and self.n == other.n and self.obj == other.obj
-    
+
     def __repr__(self):
         return 'Intersection<p[{}], d[{}]>'.format(self.p, self.d)
-
-
-class Light:
-    def __init__(self, origin, color, type='Mag', distance_coef=200000):
-        self.o = origin
-        self.color = color
-        self.type = type
-        self.distance_coef = distance_coef
-    
-    def calculate_effect(self, point, normal, obj, objects):
-        p_o = self.o - point
-        d = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj).d   
-        if p_o.len() == 0:
-            return self.color
-        if d != -1 and d < p_o.len():
-            return Vector(0, 0, 0)
-        else:
-            refl = obj.reflective
-            intensity = self.distance_coef / (12.5 * p_o.len() ** (2 - refl / 5))
-            power = max(normal.dot((p_o).normal() * intensity), AMBIENT)
-            if power != AMBIENT:
-                power = power + refl * normal.dot((p_o).normal()) ** (100 * refl)
-            return self.color * power
 
 
 class Camera:
@@ -163,15 +134,21 @@ class Camera:
         self.h = height
         self.res_x = res_x
         self.res_y = res_y
-        
+
         self.left_upper = self.d + Vector(0, width/2, -height/2)
-    
+
     def get_ray(self, x, y):
         return Ray(self.o, (self.left_upper + Vector(0, -x * self.w / self.res_x, y * self.h / self.res_y)).normal())
 
 
+class Light:
+    def __init__(self, origin, color):
+        self.o = origin
+        self.color = color
+
+
 def test_ray(ray, objects, to_ignore=None):
-    intersect = Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), None)
+    intersect = Intersection(Vector(0,0,0), -1, Vector(0,0,0), None)
     for obj in objects:
         if obj is to_ignore:
             continue
@@ -183,8 +160,8 @@ def test_ray(ray, objects, to_ignore=None):
     return intersect
 
 
-def get_color(color):
-    return tuple(map(lambda x: min(255, int(x * 255)), color))
+def mix(a, b, mix):
+    return b * mix + a * (1 - mix)
 
 
 def trace(ray, objects, lights, depth=1):
@@ -194,68 +171,52 @@ def trace(ray, objects, lights, depth=1):
     if intersection.d == -1:
         return (AMBIENT, AMBIENT, AMBIENT)
     else:
-        obj = intersection.obj
-        color = obj.color
-        
-        light_effect = Vector(0, 0, 0)
-        for light in lights:
-            light_effect += light.calculate_effect(intersection.p, intersection.n, obj, objects)
-        color = color * light_effect
-        
+        obj_color = intersection.obj.color
+        color = obj_color
         if depth and intersection.obj.reflective:
             refvec = (ray.d - intersection.n * 2 * ray.d.dot(intersection.n)).normal()
             refray = Ray(intersection.p + refvec * 0.0001, refvec) # bios to prevent ray hitting itselfs origin
             refcolor = trace(refray, objects, lights, depth - 1)
             refcolor = Vector(refcolor[0], refcolor[1], refcolor[2])
-            color = color + refcolor * intersection.obj.reflective        
-                        
+            color = color + refcolor * intersection.obj.reflective
+        light_effect = Vector(0, 0, 0)
+        for light in lights:
+            p_o = light.o - intersection.p
+            if p_o.len() == 0:
+                light_effect += Vector(1, 1, 1)
+            d = test_ray(Ray(intersection.p + p_o.normal(), p_o.normal()), objects, intersection.obj).d
+            if d != -1 and d < p_o.len():
+                light_effect = light_effect + Vector(AMBIENT, AMBIENT, AMBIENT) * light.color
+            else:
+                refl = intersection.obj.reflective
+                lightIntensity = 200000.0/(4*3.1415*(light.o-intersection.p).len()**(2 - refl / 5))
+                power = max(intersection.n.dot((p_o).normal() * lightIntensity), AMBIENT)
+                if power != AMBIENT:
+                    power = power + refl * intersection.n.dot((p_o).normal()) ** (100 * refl)
+                light_effect += light.color * power
+
+        color = color * light_effect
+
     return (color.x, color.y, color.z)
 
 
-def render_image(camera, objects, lights, depth, verbose=1):
-    img = Image.new('RGB', (camera.res_x, camera.res_y))
-    
-    for y in range(camera.res_y):
-        if verbose:
-            if y % (camera.res_y // (10)) == 0:
-                print(y / (camera.res_y))
-        for x in range(camera.res_x):
-            ray = camera.get_ray(y, x)
-            color = trace(ray, objects, lights, depth)
-            img.putpixel((x, y), get_color(color))
-    
-    if verbose:
-        print('1.0')
-    return img
+def get_color(color):
+    return tuple(map(lambda x: min(255, int(x * 255)), color))
+
+
+BACKGROUND = Vector(AMBIENT, AMBIENT, AMBIENT)
 
 
 def main():
-    frame_count = 1
-    screen_distance = 50
-    width = screen_distance
-    height = screen_distance
-    depth = 5
-    
-    resolution_coef = 16
-    min_frame_width = 500
-    min_frame_height = 500
-    
-    to_show = True
-    verbose = 1
-    
-    render_start_time = time()
-    
-    for frame_index in range(0, frame_count):
-        if verbose:
-            frame_start_time = time()
-            print('Frame_{} started'.format(frame_index + 1))
+    for k in range(0, 1):
+        print('render {}'.format(k))
+        m = 50
+        w = m
+        h = m
+        res = 16
+        img = Image.new('RGB', (int(w * res), int(h * res)))
+        c = Camera(Vector(0, 0, 0), Vector(m, 0, 0), w, h, int(w * res), int(h * res))
 
-        res_x = width * resolution_coef
-        res_y = height * resolution_coef
-        camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
-        
-        m = screen_distance
-        
         objects = []
         objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0.1)) # blue sphere
         objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
@@ -264,26 +225,26 @@ def main():
         objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
         objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
         objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
-        
+
+        #objects = [Sphere(Vector(m, 0, 0), m / 4, Vector(0.3, 0.6, 0.6), 0), Sphere(Vector(m * 0.75, 0, -m * 0.15), m / 8, Vector(0.7, 0.2, 0.8), 0)]
+
         lights = []
         lights.append(Light(Vector(20, -5, - m - 15), Vector(0.9, 0.17, 0.17)))
-        lights.append(Light(Vector(20, 10, + m + 15), Vector(0.17, 0.55, 0.9)))
-    
-        frame = render_image(camera, objects, lights, depth, verbose)
-        if res_x < min_frame_width or res_y < min_frame_height:
-            frame = frame.resize((min_frame_width, min_frame_height), Image.NEAREST)
-        
-        if to_show:
-            frame.show()
-        if verbose:
-            frame_finish_time = time()
-            print('Frame_{} finished in {:.2f}'.format(frame_index, frame_finish_time - frame_start_time))
-        frame.save('frame{}.png'.format(frame_index))
+        lights.append(Light(Vector(20, 10, + m + 15), Vector(0.17, 0.6, 0.8)))
+        #d = objects[3].c - lights[1].o
+        #lights[1].o = lights[1].o + d * 0.35 
 
-    if verbose:
-        render_finish_time = time()
-        print('Render finished in {:.2f}'.format(render_finish_time - render_start_time))
+        for y in range(c.res_y):
+            if y % (c.res_y // (10)) == 0:
+                print(y / (c.res_y))
+            for x in range(c.res_x):
+                ray = c.get_ray(y, x)
+                color = trace(ray, objects, lights, depth=4)
+                img.putpixel((x, y), get_color(color))
 
+        if m * res < 500:
+            img = img.resize((500, 500), Image.NEAREST)
+        img.show()
+        img.save('render{}.png'.format(k))
 
-if __name__ == '__main__':
-    main()
+main()
