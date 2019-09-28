@@ -4,6 +4,9 @@ from time import time
 
 
 AMBIENT = 0.1
+MAG = 1
+ANDY = 2
+DISTANT = 3
 
 
 class Vector:
@@ -135,27 +138,35 @@ class Intersection:
 
 
 class Light:
-    def __init__(self, origin, color, type='Mag', distance_coef=200000):
+    def __init__(self, origin, color, type=MAG, distance_coef=200000):
         self.o = origin
         self.color = color
         self.type = type
         self.distance_coef = distance_coef
     
     def calculate_effect(self, point, normal, obj, objects):
-        p_o = self.o - point
-        d = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj).d   
-        if p_o.len() == 0:
-            return self.color
-        if d != -1 and d < p_o.len():
-            return Vector(0, 0, 0)
-        else:
-            refl = obj.reflective
-            intensity = self.distance_coef / (12.5 * p_o.len() ** (2 - refl / 5))
-            power = max(normal.dot((p_o).normal() * intensity), AMBIENT)
-            if power != AMBIENT:
-                power = power + refl * normal.dot((p_o).normal()) ** (100 * refl)
-            return self.color * power
-
+        if self.type == MAG:
+            p_o = self.o - point
+            intersept = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj)
+            d = intersept.d
+            if p_o.len() == 0:
+                return self.color
+            if d != -1 and d < p_o.len() and not intersept.obj.refractive:
+                return Vector(0, 0, 0)
+            else:
+                refl = obj.reflective
+                intensity = self.distance_coef / (12.5 * p_o.len() ** (2 - refl / 5))
+                power = max(normal.dot((p_o).normal() * intensity), AMBIENT)
+                if power != AMBIENT:
+                    power = power + refl * normal.dot((p_o).normal()) ** (100 * refl)
+                return self.color * power
+        elif self.type == DISTANT:
+            p_o = self.o.normal() * -1
+            d = test_ray(Ray(point + p_o * 0.0001, p_o), objects, obj).d
+            if d != -1:
+                return Vector(0, 0, 0)
+            else:
+                return self.color * (-self.o.dot(normal))
 
 class Camera:
     def __init__(self, origin, direction, width, height, res_x, res_y):
@@ -222,8 +233,7 @@ def trace(ray, objects, lights, depth=1):
                 normal = normal * -1
                 etai, etat = etat, etai
             eta = etai / etat
-            k = -1 - eta * eta * (1 - cosi * cosi)
-            k *= -1
+            k = 1 - eta * eta * (1 - cosi * cosi)
             if k < 0:
                 pass
             else:
@@ -231,7 +241,7 @@ def trace(ray, objects, lights, depth=1):
                 refray = Ray(intersection.p + refvec * 0.0001, refvec) # bios to prevent ray hitting itselfs origin
                 refcolor = trace(refray, objects, lights, depth - 1)
                 refcolor = Vector(refcolor[0], refcolor[1], refcolor[2])
-                color = color + refcolor * obj.refractive
+                color = color + refcolor
                 
                         
     return (color.x, color.y, color.z)
@@ -282,7 +292,7 @@ def main():
         m = screen_distance
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 8, -4), m/3, Vector(0.3, 0.6, 0.6), 0, 1.3)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m - 20, m / 2 - 25, -4), m/3, Vector(0, 0, 0.4), 0, 1.3)) # blue sphere
         objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
         objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
         objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0.1)) # green sphere
