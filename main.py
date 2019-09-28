@@ -147,10 +147,11 @@ class Light:
     def calculate_effect(self, point, normal, obj, objects):
         if self.type == MAG:
             p_o = self.o - point
-            d = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj).d
+            intersept = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj)
+            d = intersept.d
             if p_o.len() == 0:
                 return self.color
-            if d != -1 and d < p_o.len():
+            if d != -1 and d < p_o.len() and not intersept.obj.refractive:
                 return Vector(0, 0, 0)
             else:
                 refl = obj.reflective
@@ -232,8 +233,7 @@ def trace(ray, objects, lights, depth=1):
                 normal = normal * -1
                 etai, etat = etat, etai
             eta = etai / etat
-            k = -1 - eta * eta * (1 - cosi * cosi)
-            k *= -1
+            k = 1 - eta * eta * (1 - cosi * cosi)
             if k < 0:
                 pass
             else:
@@ -271,7 +271,7 @@ def main():
     height = screen_distance
     depth = 5
     
-    resolution_coef = 32
+    resolution_coef = 4
     min_frame_width = 500
     min_frame_height = 500
     
@@ -292,13 +292,17 @@ def main():
         m = screen_distance
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 14, m / 2 - 15, -4), m/3, Vector(0, 0, 0), 0, 1.5)) # blue sphere
-        objects.append(Sphere(Vector(10 * m, 0, 150), 7, Vector(0.4, 0.5, 0.6), 0, 0)) # small sphere
-        objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0))
+        objects.append(Sphere(Vector(m + 2 * m - 20, m / 2 - 25, -4), m/3, Vector(0, 0, 0.4), 0, 1.3)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
+        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0.1)) # green sphere
+        objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
+        objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
+        objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
         
         lights = []
-        lights.append(Light(Vector(10 * m, 0, 0), Vector(1, 1, 1), type=MAG))
-        lights.append(Light(Vector(0, -1, 0), Vector(0.3, 0.7, 0.7), type=DISTANT))
+        lights.append(Light(Vector(20, -5, - m - 15), Vector(0.9, 0.17, 0.17)))
+        lights.append(Light(Vector(20, 10, + m + 15), Vector(0.17, 0.55, 0.9)))
     
         frame = render_image(camera, objects, lights, depth, verbose)
         if res_x < min_frame_width or res_y < min_frame_height:
