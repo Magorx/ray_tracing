@@ -32,7 +32,7 @@ class Sphere:
     def intersect(self, ray):
         c_o = ray.o - self.c
         discriminant = self.r ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
-        if q < 0:
+        if discriminant < 0:
             return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
         else:
             b = -ray.d.dot(c_o)
@@ -70,7 +70,7 @@ class Plane:
             if cos < 0:
                 return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
             else:
-                return Intersection(ray.o + ray.d * d, d, self.n, self)
+                return Intersection(ray.o + ray.d * cos, cos, self.n, self)
 
 
 class Intersection:
@@ -129,7 +129,7 @@ class Camera:
         self.res_x = res_x
         self.res_y = res_y
         
-        self.left_upper = self.d + Vector(0, width/2, -height/2)
+        self.left_upper = self.d + Vector(0, width/2, -height / 2)
     
     def get_ray(self, x, y):
         return Ray(self.o, (self.left_upper + Vector(0, -x * self.w / self.res_x, y * self.h / self.res_y)).normal())
@@ -243,10 +243,10 @@ def main():
         m = screen_distance
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 30, m / 2 - 15, 20), m/3, Vector(0.1, 0.1, 0.3), 0.27, 1.1)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m - 40, m / 2 - 15, 20), m / 2.5, Vector(0.1, 0.1, 0.3), 0.27, 1.15)) # blue sphere
         objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
         objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
-        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0.1)) # green sphere
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 2.7, Vector(0, 1, 0), 0.1)) # green sphere
         objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
         objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
         objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
