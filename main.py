@@ -1,4 +1,4 @@
-from math import sqrt
+from math import sqrt, sin, cos
 from PIL import Image
 from time import time
 
@@ -10,6 +10,17 @@ BACKGROUND = Vector(AMBIENT, AMBIENT, AMBIENT)
 MAG = 1
 ANDY = 2
 DISTANT = 3
+FILL = 4
+SQUARED = 5
+
+
+def sign(x):
+    if x > 0:
+        return 1
+    elif x < 0:
+        return -1
+    else:
+        return 0
 
 
 class Ray:
@@ -54,12 +65,14 @@ class Sphere:
 
 
 class Plane:
-    def __init__(self, point, normal, color, reflective=0, refractive=0):
+    def __init__(self, point, normal, color, reflective=0, refractive=0, type=FILL, scale=1):
         self.p = point
         self.n = normal
         self.color = color
         self.reflective = reflective
         self.refractive = refractive
+        self.type = type
+        self.scale = scale
     
     def intersect(self, ray):
         cos = self.n.dot(ray.d)
@@ -114,7 +127,7 @@ class Light:
 
         elif self.type == DISTANT:
             p_o = self.o.normal() * -1
-            intersection = test_ray(Ray(point + p_o * 0.0001, p_o), objects, obj)
+            intersection = test_ray(Ray(point + p_o * 0.0001, p_o), objects, [obj])
             if intersection.d != -1:
                 return Vector(0, 0, 0)
             else:
@@ -129,7 +142,7 @@ class Camera:
         self.res_x = res_x
         self.res_y = res_y
         
-        self.left_upper = self.d + Vector(0, width/2, -height / 2)
+        self.left_upper = self.o + self.d + Vector(0, width/2, -height / 2)
     
     def get_ray(self, x, y):
         return Ray(self.o, (self.left_upper + Vector(0, -x * self.w / self.res_x, y * self.h / self.res_y)).normal())
@@ -161,6 +174,12 @@ def trace(ray, objects, lights, depth=1):
     
     obj = intersection.obj
     color = obj.color
+    if isinstance(obj, Plane) and obj.type == SQUARED:
+        if sign(sin(intersection.p.z / obj.scale)) == sign(sin(intersection.p.y / obj.scale)):
+            color *= 1.1
+        else:
+            color *= 0.9
+        
     
     light_effect = Vector(0, 0, 0)
     for light in lights:
@@ -218,13 +237,13 @@ def render_image(camera, objects, lights, depth, verbose=1):
 def main():
     frame_count = 1
     screen_distance = 50
-    width = screen_distance
-    height = screen_distance
-    depth = 5
+    width = screen_distance + 20
+    height = screen_distance + 20
+    depth = 4
     
     resolution_coef = 4
-    min_frame_width = 500
-    min_frame_height = 500
+    min_frame_width = 4000
+    min_frame_height = 4000
     
     to_show = True
     verbose = 1
@@ -238,22 +257,29 @@ def main():
 
         res_x = width * resolution_coef
         res_y = height * resolution_coef
-        camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
-        
         m = screen_distance
         
+        camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
+        
+        
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 40, m / 2 - 15, 20), m / 2.5, Vector(0.1, 0.1, 0.3), 0.27, 1.15)) # blue sphere
-        objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
-        objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
-        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 2.7, Vector(0, 1, 0), 0.1)) # green sphere
-        objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
-        objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
-        objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
+        k = 1
+        l = m / 2
+        r = m / 3
+        main = 0.7
+        fair = 0.3
+        sc = 1
+        objects.append(Sphere(Vector(2 * m, +l+5, 0), r, Vector(sc, sc, sc), 0, 0))
+        objects.append(Sphere(Vector(2 * m, -l-5, 0), r, Vector(sc, sc, sc), 0, 0))
+        
+        objects.append(Plane(Vector(2 * m + r, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0.4, type=FILL, scale=3))
         
         lights = []
-        lights.append(Light(Vector(20, -5, - m - 15), Vector(0.9, 0.17, 0.17)))
-        lights.append(Light(Vector(20, 10, + m + 15), Vector(0.17, 0.55, 0.9)))
+        dx = 50
+        h = 2 * r + dx * r / l
+        coef = 90000
+        lights.append(Light(Vector(2 * m - h, 3 * l, 0), Vector(main, 0, 0), distance_coef=coef))
+        lights.append(Light(Vector(2 * m - h, -3 * l, 0), Vector(0, 0, main), distance_coef=coef))
     
         frame = render_image(camera, objects, lights, depth, verbose)
         if res_x < min_frame_width or res_y < min_frame_height:

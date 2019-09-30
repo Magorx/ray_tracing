@@ -2,65 +2,15 @@ from math import sqrt
 from PIL import Image
 from time import time
 
+from vector import Vector
+
 
 AMBIENT = 0.1
+BACKGROUND = Vector(AMBIENT, AMBIENT, AMBIENT)
 MAG = 1
 ANDY = 2
 DISTANT = 3
 
-
-class Vector:
-    def __init__(self,x,y,z):
-        self.x = x
-        self.y = y
-        self.z = z
-
-    def dot(self, other):
-        return self.x * other.x + self.y * other.y + self.z * other.z
-
-    def cross(self, other):
-        return (self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
-
-    def len(self):
-        return sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
-
-    def normal(self):
-        l = self.len()
-        if l == 0:
-            return Vector(0, 0, 0)
-        else:
-            return Vector(self.x / l, self.y / l, self.z / l)
-
-    def proection(self, other):
-        return self.normal() * self.dot(other.normal()) * other.len()
-    
-    def to_ints(self):
-        return Vector(int(self.x), int(self.y), int(self.z))
-
-    def __add__(self, other):
-        return Vector(self.x + other.x, self.y + other.y, self.z + other.z)
-
-    def __sub__(self, other):
-        return Vector(self.x - other.x, self.y - other.y, self.z - other.z)
-
-    def __mul__(self, other):
-        if isinstance(other, Vector):
-            return Vector(self.x * other.x, self.y * other.y, self.z * other.z)
-        else:
-            assert type(other) == float or type(other) == int
-            return Vector(self.x * other, self.y * other, self.z * other)
-
-    def __pow__(self, other):
-        return Vector(self.x ** other, self.y ** other, self.z ** other)
-
-    def __repr__(self):
-        return '{' + '{}, {}, {}'.format(self.x, self.y, self.z) + '}'
-
-    def __eq__(self, other):
-        return self.x == other.x and self.y == other.y and self.z == other.z
-
-    def __lt__(self, other):
-        return self.x < other.x or self.y < other.y or self.z < other.z
 
 class Ray:
     def __init__(self, origin, direction):
@@ -81,13 +31,13 @@ class Sphere:
     
     def intersect(self, ray):
         c_o = ray.o - self.c
-        q = self.r ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
-        if q < 0:
+        discriminant = self.r ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
+        if discriminant < 0:
             return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
         else:
-            d = -ray.d.dot(c_o)
-            d1 = d - sqrt(q)
-            d2 = d + sqrt(q)
+            b = -ray.d.dot(c_o)
+            d1 = b - sqrt(discriminant)
+            d2 = b + sqrt(discriminant)
             
             if d1 > 0 and (d2 > d1 or d2 < 0):
                 d = d1
@@ -112,15 +62,15 @@ class Plane:
         self.refractive = refractive
     
     def intersect(self, ray):
-        d = self.n.dot(ray.d)
-        if abs(d) < 0.000001:
+        cos = self.n.dot(ray.d)
+        if abs(cos) < 0.000001:
             return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
         else:
-            d = (self.p - ray.o).dot(self.n) / d
-            if d < 0:
+            cos = (self.p - ray.o).dot(self.n) / cos
+            if cos < 0:
                 return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
             else:
-                return Intersection(ray.o + ray.d * d, d, self.n, self)
+                return Intersection(ray.o + ray.d * cos, cos, self.n, self)
 
 
 class Intersection:
@@ -147,23 +97,25 @@ class Light:
     def calculate_effect(self, point, normal, obj, objects):
         if self.type == MAG:
             p_o = self.o - point
-            intersept = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, obj)
-            d = intersept.d
             if p_o.len() == 0:
                 return self.color
-            if d != -1 and d < p_o.len() and not intersept.obj.refractive:
+            
+            intersection = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, [obj])
+            dist = intersection.d            
+            if dist != -1 and dist < p_o.len() and not intersection.obj.refractive:
                 return Vector(0, 0, 0)
             else:
-                refl = obj.reflective
-                intensity = self.distance_coef / (12.5 * p_o.len() ** (2 - refl / 5))
+                reflection_coef = obj.reflective
+                intensity = self.distance_coef / (12.5 * p_o.len() ** (2 - reflection_coef / 5))
                 power = max(normal.dot((p_o).normal() * intensity), AMBIENT)
                 if power != AMBIENT:
-                    power = power + refl * normal.dot((p_o).normal()) ** (100 * refl)
+                    power = power + reflection_coef * normal.dot((p_o).normal()) ** (100 * reflection_coef)
                 return self.color * power
+
         elif self.type == DISTANT:
             p_o = self.o.normal() * -1
-            d = test_ray(Ray(point + p_o * 0.0001, p_o), objects, obj).d
-            if d != -1:
+            intersection = test_ray(Ray(point + p_o * 0.0001, p_o), objects, obj)
+            if intersection.d != -1:
                 return Vector(0, 0, 0)
             else:
                 return self.color * (-self.o.dot(normal))
@@ -177,74 +129,73 @@ class Camera:
         self.res_x = res_x
         self.res_y = res_y
         
-        self.left_upper = self.d + Vector(0, width/2, -height/2)
+        self.left_upper = self.d + Vector(0, width/2, -height / 2)
     
     def get_ray(self, x, y):
         return Ray(self.o, (self.left_upper + Vector(0, -x * self.w / self.res_x, y * self.h / self.res_y)).normal())
 
 
-def test_ray(ray, objects, to_ignore=None):
-    intersect = Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), None)
+def test_ray(ray, objects, to_ignore=[]):
+    intersection = Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), None)
     for obj in objects:
-        if obj is to_ignore:
+        if obj in to_ignore:
             continue
-        cur = obj.intersect(ray)
-        if cur.d > 0 and intersect.d < 0:
-            intersect = cur
-        elif 0 < cur.d and cur.d < intersect.d:
-            intersect = cur
-    return intersect
+        current_intersection = obj.intersect(ray)
+        if current_intersection.d > 0 and intersection.d < 0:
+            intersection = current_intersection
+        elif 0 < current_intersection.d and current_intersection.d < intersection.d:
+            intersection = current_intersection
+    return intersection
 
 
 def get_color(color):
-    return tuple(map(lambda x: min(255, int(x * 255)), color))
+    return tuple(map(lambda x: min(255, int(x * 255)), [color.x, color.y, color.z]))
 
 
 def trace(ray, objects, lights, depth=1):
     if not depth:
-        return (AMBIENT, AMBIENT, AMBIENT)
+        return BACKGROUND
     intersection = test_ray(ray, objects)
     if intersection.d == -1:
-        return (AMBIENT, AMBIENT, AMBIENT)
-    else:
-        obj = intersection.obj
-        color = obj.color
+        return BACKGROUND
+    
+    obj = intersection.obj
+    color = obj.color
+    
+    light_effect = Vector(0, 0, 0)
+    for light in lights:
+        light_effect += light.calculate_effect(intersection.p, intersection.n, obj, objects)
+    color = color * light_effect
+    
+    if depth and obj.reflective:
+        reflected_vector = (ray.d - intersection.n * 2 * ray.d.dot(intersection.n)).normal()
+        reflectaed_ray = Ray(intersection.p + reflected_vector * 0.0001, reflected_vector) # bios to prevent ray hitting itselfs origin
+        reflected_color = trace(reflectaed_ray, objects, lights, depth - 1)
+        color = color + reflected_color * intersection.obj.reflective
+
+    if depth and obj.refractive:
+        normal = intersection.n
+        cos = ray.d.dot(normal)
         
-        light_effect = Vector(0, 0, 0)
-        for light in lights:
-            light_effect += light.calculate_effect(intersection.p, intersection.n, obj, objects)
-        color = color * light_effect
-        
-        if depth and obj.reflective:
-            refvec = (ray.d - intersection.n * 2 * ray.d.dot(intersection.n)).normal()
-            refray = Ray(intersection.p + refvec * 0.0001, refvec) # bios to prevent ray hitting itselfs origin
-            refcolor = trace(refray, objects, lights, depth - 1)
-            refcolor = Vector(refcolor[0], refcolor[1], refcolor[2])
-            color = color + refcolor * intersection.obj.reflective
-        if depth and obj.refractive:
-            normal = intersection.n
-            cosi = min(1, max(-1, ray.d.dot(normal)))
-            
-            etai = 1
-            etat = obj.refractive
-            if cosi < 0:
-                cosi *= -1
-            else:
-                normal = normal * -1
-                etai, etat = etat, etai
-            eta = etai / etat
-            k = 1 - eta * eta * (1 - cosi * cosi)
-            if k < 0:
-                pass
-            else:
-                refvec = ray.d * eta + normal * (eta * cosi - sqrt(k))
-                refray = Ray(intersection.p + refvec * 0.0001, refvec) # bios to prevent ray hitting itselfs origin
-                refcolor = trace(refray, objects, lights, depth - 1)
-                refcolor = Vector(refcolor[0], refcolor[1], refcolor[2])
-                color = color + refcolor
+        coef_from = 1
+        coef_to = obj.refractive
+        if cos < 0:
+            cos *= -1
+        else:
+            normal = normal * -1
+            coef_from, coef_to = coef_to, coef_from
+
+        ratio = coef_from / coef_to
+        k = 1 - ratio * ratio * (1 - cos * cos)
+        if k < 0:
+            pass
+        else:
+            refratced_vector = ray.d * ratio + normal * (ratio * cos - sqrt(k))
+            refracted_ray = Ray(intersection.p + refratced_vector * 0.0001, refratced_vector) # bios to prevent ray hitting itselfs origin
+            refracted_color = trace(refracted_ray, objects, lights, depth - 1)
+            color = color + refracted_color
                 
-                        
-    return (color.x, color.y, color.z)
+    return color
 
 
 def render_image(camera, objects, lights, depth, verbose=1):
@@ -292,10 +243,10 @@ def main():
         m = screen_distance
         
         objects = []
-        objects.append(Sphere(Vector(m + 2 * m - 20, m / 2 - 25, -4), m/3, Vector(0, 0, 0.4), 0, 1.3)) # blue sphere
+        objects.append(Sphere(Vector(m + 2 * m - 40, m / 2 - 15, 20), m / 2.7, Vector(0.1, 0.1, 0.3), 0.27, 1.15)) # blue sphere
         objects.append(Sphere(Vector(m + 2 * m, m / 2, 0), m / 2, Vector(1, 0, 0), 0.05)) # red sphere
         objects.append(Sphere(Vector(m + 2 * m, - m / 2, -m / 4), m / 4, Vector(0, 0, 0), 1)) # orange-mirror sphere
-        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 3, Vector(0, 1, 0), 0.1)) # green sphere
+        objects.append(Sphere(Vector(m + 2 * m, 0.2 * m, m), m / 2.7, Vector(0, 1, 0), 0.1)) # green sphere
         objects.append(Plane(Vector(0, - m / 2 - m / 4, 0), Vector(0, 1, 0), Vector(1, 0, 0), 0.8))
         objects.append(Plane(Vector(4 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(0, 1, 1), 0))
         objects.append(Plane(Vector(0, m / 2 + m / 3 + 20, 0), Vector(0, -1, 0), Vector(1, 1, 1), 0))
