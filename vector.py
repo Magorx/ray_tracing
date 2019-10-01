@@ -11,7 +11,7 @@ class Vector:
         return self.x * other.x + self.y * other.y + self.z * other.z
 
     def cross(self, other):
-        return (self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
+        return Vector(self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
 
     def len(self):
         return sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
@@ -41,6 +41,13 @@ class Vector:
         else:
             assert type(other) == float or type(other) == int
             return Vector(self.x * other, self.y * other, self.z * other)
+    
+    def __truediv__(self, other):
+        if isinstance(other, Vector):
+            return Vector(self.x / other.x, self.y / other.y, self.z / other.z)
+        else:
+            assert type(other) == float or type(other) == int
+            return Vector(self.x / other, self.y / other, self.z / other)        
 
     def __pow__(self, other):
         return Vector(self.x ** other, self.y ** other, self.z ** other)
@@ -53,3 +60,25 @@ class Vector:
 
     def __lt__(self, other):
         return self.x < other.x or self.y < other.y or self.z < other.z
+
+
+    def rotx(vec, ang):
+        x = vec.x
+        y = vec.y * cos(ang) + vec.z * sin(ang)
+        z = vec.y * sin(ang) * (-1) + vec.z * cos(ang)
+        return Vector(x, y, z)
+    
+    def roty(vec, ang):
+        x = vec.x * cos(ang) + vec.z * sin(ang)
+        y = vec.y
+        z = vec.z * cos(ang) - vec.x * sin(ang)
+        return Vector(x, y, z)
+    
+    def rotz(vec, ang):
+        x = vec.x * cos(ang) - vec.y * sin(ang)
+        y = vec.y * cos(ang) - vec.x * sin(ang)
+        z = vec.z
+        return Vector(x, y, z)
+    
+    def rot(vec, dx, dy, dz):
+        return rotz(roty(rotx(vec, dx), dy), dz)

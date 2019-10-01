@@ -15,12 +15,10 @@ SQUARED = 5
 
 
 def sign(x):
-    if x > 0:
+    if x >= 0:
         return 1
-    elif x < 0:
-        return -1
     else:
-        return 0
+        return -1
 
 
 class Ray:
@@ -75,15 +73,15 @@ class Plane:
         self.scale = scale
     
     def intersect(self, ray):
-        cos = self.n.dot(ray.d)
-        if abs(cos) < 0.000001:
+        cs = self.n.dot(ray.d)
+        if abs(cs) < 0.000001:
             return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
         else:
-            cos = (self.p - ray.o).dot(self.n) / cos
-            if cos < 0:
+            cs = (self.p - ray.o).dot(self.n) / cs
+            if cs < 0:
                 return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
             else:
-                return Intersection(ray.o + ray.d * cos, cos, self.n, self)
+                return Intersection(ray.o + ray.d * cs, cs, self.n, self)
 
 
 class Intersection:
@@ -133,20 +131,6 @@ class Light:
             else:
                 return self.color * (-self.o.dot(normal))
 
-class Camera:
-    def __init__(self, origin, direction, width, height, res_x, res_y):
-        self.o = origin
-        self.d = direction
-        self.w = width
-        self.h = height
-        self.res_x = res_x
-        self.res_y = res_y
-        
-        self.left_upper = self.o + self.d + Vector(0, width/2, -height / 2)
-    
-    def get_ray(self, x, y):
-        return Ray(self.o, (self.left_upper + Vector(0, -x * self.w / self.res_x, y * self.h / self.res_y)).normal())
-
 
 def test_ray(ray, objects, to_ignore=[]):
     intersection = Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), None)
@@ -174,8 +158,14 @@ def trace(ray, objects, lights, depth=1):
     
     obj = intersection.obj
     color = obj.color
+    point = intersection.p
     if isinstance(obj, Plane) and obj.type == SQUARED:
-        if sign(sin(intersection.p.z / obj.scale)) == sign(sin(intersection.p.y / obj.scale)):
+        def f(n):
+            return sign(sin(n / obj.scale))
+        x = f(point.x)
+        y = f(point.y)
+        z = f(point.z)
+        if y == z:
             color *= 1.1
         else:
             color *= 0.9
@@ -194,22 +184,22 @@ def trace(ray, objects, lights, depth=1):
 
     if depth and obj.refractive:
         normal = intersection.n
-        cos = ray.d.dot(normal)
+        cs = ray.d.dot(normal)
         
         coef_from = 1
         coef_to = obj.refractive
-        if cos < 0:
-            cos *= -1
+        if cs < 0:
+            cs *= -1
         else:
             normal = normal * -1
             coef_from, coef_to = coef_to, coef_from
 
         ratio = coef_from / coef_to
-        k = 1 - ratio * ratio * (1 - cos * cos)
+        k = 1 - ratio * ratio * (1 - cs * cs)
         if k < 0:
             pass
         else:
-            refratced_vector = ray.d * ratio + normal * (ratio * cos - sqrt(k))
+            refratced_vector = ray.d * ratio + normal * (ratio * cs - sqrt(k))
             refracted_ray = Ray(intersection.p + refratced_vector * 0.0001, refratced_vector) # bios to prevent ray hitting itselfs origin
             refracted_color = trace(refracted_ray, objects, lights, depth - 1)
             color = color + refracted_color
@@ -232,6 +222,26 @@ def render_image(camera, objects, lights, depth, verbose=1):
     if verbose:
         print('1.0')
     return img
+
+
+class Camera:
+    def __init__(self, origin, direction, width, height, res_x, res_y):
+        self.o = origin
+        self.d = direction
+        self.w = width
+        self.h = height
+        self.res_x = res_x
+        self.res_y = res_y
+        
+        y = 1
+        z = 0
+        x = (self.d.y * y + self.d.z * z) / self.d.x * -1
+        self.ort1 = Vector(-self.d.y, self.d.x, self.d.z).normal()
+        self.ort2 = self.ort1.cross(self.d).normal()
+        self.left_upper = self.o + self.d + self.ort1 * width / 2 + self.ort2 * height / 2
+    
+    def get_ray(self, x, y):
+        return Ray(self.o, (self.left_upper - self.ort1 * x * self.w / self.res_x - self.ort2 * y * self.h / self.res_y).normal())
 
 
 def main():
@@ -258,10 +268,8 @@ def main():
         res_x = width * resolution_coef
         res_y = height * resolution_coef
         m = screen_distance
-        
         camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
-        
-        
+    
         objects = []
         k = 1
         l = m / 2
@@ -271,15 +279,15 @@ def main():
         sc = 1
         objects.append(Sphere(Vector(2 * m, +l+5, 0), r, Vector(sc, sc, sc), 0, 0))
         objects.append(Sphere(Vector(2 * m, -l-5, 0), r, Vector(sc, sc, sc), 0, 0))
-        
+    
         objects.append(Plane(Vector(2 * m + r, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0.4, type=FILL, scale=3))
-        
+    
         lights = []
         dx = 50
         h = 2 * r + dx * r / l
         coef = 90000
         lights.append(Light(Vector(2 * m - h, 3 * l, 0), Vector(main, 0, 0), distance_coef=coef))
-        lights.append(Light(Vector(2 * m - h, -3 * l, 0), Vector(0, 0, main), distance_coef=coef))
+        lights.append(Light(Vector(2 * m - h, -3 * l, 0), Vector(0, 0, main), distance_coef=coef))        
     
         frame = render_image(camera, objects, lights, depth, verbose)
         if res_x < min_frame_width or res_y < min_frame_height:
