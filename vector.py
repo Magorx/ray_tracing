@@ -1,4 +1,4 @@
-from math import sqrt
+from math import sqrt, sin, cos
 
 
 class Vector:
@@ -62,23 +62,23 @@ class Vector:
         return self.x < other.x or self.y < other.y or self.z < other.z
 
 
-    def rotx(vec, ang):
-        x = vec.x
-        y = vec.y * cos(ang) + vec.z * sin(ang)
-        z = vec.y * sin(ang) * (-1) + vec.z * cos(ang)
-        return Vector(x, y, z)
-    
-    def roty(vec, ang):
-        x = vec.x * cos(ang) + vec.z * sin(ang)
-        y = vec.y
-        z = vec.z * cos(ang) - vec.x * sin(ang)
-        return Vector(x, y, z)
-    
-    def rotz(vec, ang):
-        x = vec.x * cos(ang) - vec.y * sin(ang)
-        y = vec.y * cos(ang) - vec.x * sin(ang)
-        z = vec.z
-        return Vector(x, y, z)
-    
-    def rot(vec, dx, dy, dz):
-        return rotz(roty(rotx(vec, dx), dy), dz)
+def rotx(vec, ang):
+    x = vec.x
+    y = vec.y * cos(ang) - vec.z * sin(ang)
+    z = vec.y * sin(ang) + vec.z * cos(ang)
+    return Vector(x, y, z)
+
+def roty(vec, ang):
+    x = vec.x * cos(ang) + vec.z * sin(ang)
+    y = vec.y
+    z = vec.z * cos(ang) - vec.x * sin(ang)
+    return Vector(x, y, z)
+
+def rotz(vec, ang):
+    x = vec.x * cos(ang) - vec.y * sin(ang)
+    y = vec.y * cos(ang) - vec.x * sin(ang)
+    z = vec.z
+    return Vector(x, y, z)
+
+def rot(vec, dx, dy, dz):
+    return rotz(roty(rotx(vec, dx), dy), dz)
