@@ -1,0 +1,22 @@
+m = screen_distance
+        
+        camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
+        
+        objects = []
+        k = 1
+        l = m / 2
+        r = m / 3
+        main = 0.7
+        fair = 0.3
+        sc = 1
+        objects.append(Sphere(Vector(2 * m, +l+5, 0), r, Vector(sc, sc, sc), 0, 0))
+        objects.append(Sphere(Vector(2 * m, -l-5, 0), r, Vector(sc, sc, sc), 0, 0))
+        
+        objects.append(Plane(Vector(2 * m + r, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0.4, type=FILL, scale=3))
+        
+        lights = []
+        dx = 50
+        h = 2 * r + dx * r / l
+        coef = 90000
+        lights.append(Light(Vector(2 * m - h, 3 * l, 0), Vector(main, 0, 0), distance_coef=coef))
+        lights.append(Light(Vector(2 * m - h, -3 * l, 0), Vector(0, 0, main), distance_coef=coef))

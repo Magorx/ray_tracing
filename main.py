@@ -245,49 +245,48 @@ class Camera:
 
 
 def main():
-    frame_count = 1
+    frame_count = 20
     screen_distance = 50
     width = screen_distance + 20
     height = screen_distance + 20
     depth = 4
     
-    resolution_coef = 4
+    resolution_coef = 16
     min_frame_width = 4000
     min_frame_height = 4000
     
-    to_show = True
+    to_show = False
+    to_complete_loop = True
     verbose = 1
     
     render_start_time = time()
     
+    frames = []
     for frame_index in range(0, frame_count):
+        k = frame_index
         if verbose:
             frame_start_time = time()
-            print('Frame_{} started'.format(frame_index + 1))
+            print('Frame_{} started'.format(frame_index))
 
         res_x = width * resolution_coef
         res_y = height * resolution_coef
         m = screen_distance
-        camera = Camera(Vector(0, 0, 0), Vector(screen_distance, 0, 0), width, height, res_x, res_y)
+        camera = Camera(Vector(-screen_distance/3 + k, -5 * k, 3 * k), Vector(2 * screen_distance, 10 * k, -6 * k), width, height, res_x, res_y)
     
         objects = []
-        k = 1
         l = m / 2
         r = m / 3
         main = 0.7
         fair = 0.3
         sc = 1
-        objects.append(Sphere(Vector(2 * m, +l+5, 0), r, Vector(sc, sc, sc), 0, 0))
-        objects.append(Sphere(Vector(2 * m, -l-5, 0), r, Vector(sc, sc, sc), 0, 0))
-    
-        objects.append(Plane(Vector(2 * m + r, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0.4, type=FILL, scale=3))
+        objects.append(Sphere(Vector(2 * m, 0, 0), r, Vector(sc, sc, sc), 0, 0))
+        objects.append(Plane(Vector(2 * m + r, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0.4, type=SQUARED, scale=3))
     
         lights = []
         dx = 50
         h = 2 * r + dx * r / l
-        coef = 90000
-        lights.append(Light(Vector(2 * m - h, 3 * l, 0), Vector(main, 0, 0), distance_coef=coef))
-        lights.append(Light(Vector(2 * m - h, -3 * l, 0), Vector(0, 0, main), distance_coef=coef))        
+        coef = 200000
+        lights.append(Light(Vector(0, 0, 2 * m), Vector(0.6, 0.1 + 4 * k / 100, 0.3 + 2 * k / 100), distance_coef=coef))        
     
         frame = render_image(camera, objects, lights, depth, verbose)
         if res_x < min_frame_width or res_y < min_frame_height:
@@ -299,6 +298,16 @@ def main():
             frame_finish_time = time()
             print('Frame_{} finished in {:.2f}'.format(frame_index, frame_finish_time - frame_start_time))
         frame.save('frame{}.png'.format(frame_index))
+        if to_complete_loop:
+            frame.save('frame{}.png'.format(frame_count * 2 - frame_index - 1))
+    
+    if to_complete_loop:
+        if verbose:
+            print('Completing loop')
+
+        frames = frames + frames[-1:-len(frames) - 1:-1]
+        for i in range(frame_count, len(frames)):
+            frames[i].save('frame{}.png'.format(i))
 
     if verbose:
         render_finish_time = time()

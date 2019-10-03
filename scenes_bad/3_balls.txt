@@ -1,0 +1,26 @@
+        m = screen_distance
+        
+        objects = []
+        k = 1
+        l = m / 2
+        r = m / 3
+        main = 0.8
+        fair = 0.2
+        objects.append(Sphere(Vector(2 * m, +l, +0), r, Vector(0.7, 0.7, 0.7), 0, 0))
+        objects.append(Sphere(Vector(2 * m, -l, -l), r, Vector(0.7, 0.7, 0.7), 0, 0))
+        objects.append(Sphere(Vector(2 * m, -l, +l), r, Vector(0.7, 0.7, 0.7), 0, 0))
+        
+        objects.append(Plane(Vector(2 * m + m / 3, 0, 0), Vector(-1, 0, 0), Vector(main, main, main), 0))
+        
+        lights = []
+        dx = 50
+        h = 2 * r + dx * r / l
+        coef = 200000
+        lights.append(Light(Vector(2 * m - h, l + dx, 0), Vector(main, fair, fair), distance_coef=coef))
+        lights.append(Light(Vector(2 * m - h, -(l + dx), +(l + dx)), Vector(fair, main / 2, fair), distance_coef=coef))
+        lights.append(Light(Vector(2 * m - h, -(l + dx), -(l + dx)), Vector(fair, fair, main), distance_coef=coef))
+        for i in range(3):
+            lights[i].o = objects[i].c + Vector(- 2 * m, 0, 0)
+        lights[0].o += Vector(0, 20, 0)
+        lights[1].o += Vector(0, -20, -20)
+        lights[2].o += Vector(0, -20, 20)
