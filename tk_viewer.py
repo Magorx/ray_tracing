@@ -7,7 +7,7 @@ import ray_tracer as RT
 
 
 def main():
-    width = 23
+    width = 20
     height = width
     res_coef = 1
     min_frame_width = 500
@@ -67,9 +67,9 @@ def main():
         scene.camera.update()
 
         frame = RT.render_image(scene=scene, verbose=0, pygame_mode=True)
-        frame = pygame.transform.scale(frame, (min_frame_width, min_frame_height))
+        frame = pygame.transform.scale(frame, (min_frame_width, min_frame_height), screen)
         #frame.save('screen.png')
-        screen.blit(frame, (0, 0))
+        #screen.blit(frame, (0, 0))
         
         pygame.display.flip() 
         #sleep(1/30)
