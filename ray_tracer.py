@@ -36,7 +36,6 @@ class Ray:
     def __repr__(self):
         return self.d.__repr__()
 
-
 class Sphere:
     def __init__(self, center, radius, color, reflective=0, refractive_coef=1, refractive=0):
         self.c = center
@@ -48,11 +47,15 @@ class Sphere:
     
     def intersect(self, ray):
         c_o = ray.o - self.c
-        discriminant = self.r ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
+        h = ray.o + ray.d.normal() * ray.d.dot(c_o)
+        f = self.c + self.normal(h) * self.r
+        r_ = self.r
+        discriminant = r_ ** 2 - (c_o.dot(c_o) - ray.d.dot(c_o) ** 2)
         if discriminant < 0:
             return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
         else:
             b = -ray.d.dot(c_o)
+            pt = ray.o + ray.d * b
             d1 = b - sqrt(discriminant)
             d2 = b + sqrt(discriminant)
             
@@ -62,9 +65,10 @@ class Sphere:
                 d = d2
             else:
                 return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
-            
+
             point = ray.o + ray.d * d
-            return Intersection(point, d, self.normal(point), self)
+            intersection = Intersection(point, d, self.normal(point), self)
+            return intersection
     
     def normal(self, other):
         return (other - self.c).normal()
@@ -90,6 +94,7 @@ class Plane:
 
         cs = (self.p - ray.o).dot(self.n) / cs
         return Intersection(ray.o + ray.d * cs, cs, self.n, self)
+
 
 class Triangle:
     def __init__(self, p1, p2, p3, color, reflective=0, refractive_coef=1, refractive=0, type=FILL, scale=1):
@@ -167,7 +172,7 @@ class Light:
             
             intersection = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, [obj])
             dist = intersection.d            
-            if dist != -1 and dist < p_o.len() and not intersection.obj.refractive:
+            if dist != -1 and dist < p_o.len() and not intersection.obj.refractive_coef:
                 return Vector(0, 0, 0)
             else:
                 reflection_coef = obj.reflective
@@ -204,7 +209,6 @@ def get_color(color):
 
 
 def trace(ray, objects, lights, depth=1):
-    coef = 1
     if not depth:
         return BACKGROUND
     intersection = test_ray(ray, objects)
@@ -214,10 +218,13 @@ def trace(ray, objects, lights, depth=1):
     obj = intersection.obj
     color = obj.color
     point = intersection.p
+    '''
+    # YOU CAN ADD SOME TEXTURES HERE! it was a nice mistake
     if isinstance(obj, Sphere) and obj == objects[0]:
         point = point + intersection.n.normal()*obj.r*abs(g(point.x * coef, point.y * coef, point.z * coef))
         intersection.d = (point - ray.o).len()
         intersection.p = point
+    '''
     if isinstance(obj, Plane) and obj.type == SQUARED:
         def f(n):
             return sign(sin(n / obj.scale))
@@ -265,7 +272,7 @@ def trace(ray, objects, lights, depth=1):
             refracted_color = trace(refracted_ray, objects, lights, depth - 1)
     color = color * light_effect * (1 - obj.refractive) * (1 - obj.reflective) + reflected_color + refracted_color * obj.refractive
 
-    return color * abs(g(intersection.p.x * coef, intersection.p.y * coef, intersection.p.z * coef))
+    return color # * abs(g(point.x * COEF, point.y * COEF, point.z * COEF)) visual effetcs
 
 
 def render_image(camera=None, objects=None, lights=None, depth=2, verbose=1, scene=None, pygame_mode=False):
@@ -372,23 +379,24 @@ class Model:
 
         if file:
             fin = open(file, 'r')
-            cnt = int(fin.readline())
             self.points = []
             self.links = []
-            for i in range(cnt):
-                s = fin.readline()
-                if s == '\n':
+            for line in fin.readlines():
+                s = line[:-1]
+                if not s:
                     continue
-                tp, x, y, z = s.split()
-                if tp == 'p':
-                    x, y, z = map(float, [x, y, z])
-                    self.points.append(Vector(x, y, z))
-                elif tp == 'l':
-                    x, y, z = map(int, [x, y, z])
-                    self.links.append([x - 1, y - 1, z - 1])
+                s = s.split()
+                type = s[0]
+                nums = s[1:]
+                if type == 'p':
+                    x, y, z = map(float, nums)
+                    self.points.append(Vector(x, -y, z))
+                elif type == 'l':
+                    link = list(map(lambda x: int(x) - 1, nums))
+                    self.links.append(link)
         else:
             self.points = points
-            self.links =  links
+            self.links = links
         
         self.color = color
         self.reflective = reflective
@@ -400,11 +408,12 @@ class Model:
     def get_triangles(self):
         triangles = []
         for link in self.links:
-            p1 = self.points[link[0]] * self.coef + self.center
-            p2 = self.points[link[1]] * self.coef + self.center
-            p3 = self.points[link[2]] * self.coef + self.center
-            triangle = Triangle(p1, p2, p3, self.color, reflective=self.reflective, refractive_coef=self.refractive_coef, refractive=self.refractive, type=self.type, scale=self.scale)
-            triangles.append(triangle)
+            p0 = self.points[link[0]] * self.coef + self.center
+            for i in range(1, len(link) - 1):
+                p1 = self.points[link[i]] * self.coef + self.center
+                p2 = self.points[link[i + 1]] * self.coef + self.center
+                triangle = Triangle(p0, p1, p2, self.color, reflective=self.reflective, refractive_coef=self.refractive_coef, refractive=self.refractive, type=self.type, scale=self.scale)
+                triangles.append(triangle)
         return triangles
 
 
