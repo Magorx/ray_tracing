@@ -79,15 +79,22 @@ class Plane:
         self.type = type
         self.scale = scale
 
+        self.stable_normal = False
+
     def __repr__(self):
         return 'Plane[{}, {}]'.format(self.p, self.n)
-    
-    def intersect(self, ray):
+
+    def intersect(self, ray, stabilized=False):
         cs = self.n.dot(ray.d)
-        if abs(cs) < EPS:
-            return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
-        if cs > 0:
-            return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
+        if abs(cs) < EPS or cs > 0:
+            if self.stable_normal or stabilized:
+                return Intersection(Vector(0, 0, 0), -1, Vector(0, 0, 0), self)
+            else:
+                self.n *= -1
+                ret = self.intersect(ray, True)
+                if ret.d > 0:
+                    self.stable_normal = True
+                return ret
 
         cs = (self.p - ray.o).dot(self.n) / cs
         return Intersection(ray.o + ray.d * cs, cs, self.n, self)
@@ -124,9 +131,6 @@ class Triangle:
     
     def intersect(self, ray):
         p = self.plane.intersect(ray)
-        if p.d == -1:
-            self.plane.n *= -1
-            p = self.plane.intersect(ray)
         if p.d == -1:
             return p
 

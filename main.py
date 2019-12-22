@@ -17,7 +17,7 @@ def main():
     radius = m / 4
     clr = 0.75
     
-    resolution_coef = 4
+    resolution_coef = 2
     min_frame_width = 4000
     min_frame_height = 4000
 
@@ -42,9 +42,9 @@ def main():
         b = random.uniform(0.25, 0.75)
         objects.append(ray_tracer.Plane(plane['p'], plane['n'], Vector(r, g, b)))
 
-    # model = ray_tracer.Model(Vector(2 * m, +15, 0), m, color=Vector(0.7, 0.4, 0.1), file='model.txt')
-    # triags = model.get_triangles()
-    # objects += triags
+    model = ray_tracer.Model(Vector(2 * m, +15, 0), m, color=Vector(0.7, 0.4, 0.1), file='model.txt')
+    triags = model.get_triangles()
+    objects += triags
     
     frames = []
     for frame_index in range(0, frame_count):
