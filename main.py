@@ -3,7 +3,6 @@ from time import time
 
 from vector import Vector
 import ray_tracer
-import random
 
 
 def main():
@@ -11,41 +10,71 @@ def main():
     width = 50
     height = width
     screen_distance = width * 2
-    depth = 4
-    
+    depth = 5
+
     m = screen_distance
-    radius = m / 4
-    clr = 0.75
-    
-    resolution_coef = 2
+
+    resolution_coef = 25
     min_frame_width = 4000
     min_frame_height = 4000
 
     to_show = True
     to_complete_loop = False
     verbose = 1
-    
+
     render_start_time = time()
     frame_start_time = 0
 
-    objects = [ray_tracer.Sphere(Vector(2 * m, 0.5 * m, 0.5 * m), radius, Vector(clr, clr, 0)),
-               ray_tracer.Sphere(Vector(2 * m, 0, -0.5 * m), radius, Vector(0, clr, clr)),
-               ray_tracer.Sphere(Vector(2 * m, -0.5 * m, -0.5 * m), radius, Vector(0.4, 0.2, 0.2), reflective=0.2)]
+    camera = ray_tracer.Camera(Vector(-m / 2, 0, 0), Vector(1, 0, 0), screen_distance, width, height, resolution_coef)
 
-    box = ray_tracer.generate_box_for_spheres(objects, indents=[0, 0, 0, -10, 0, 0])
-    for dr in box:
-        if dr == 'front':
-            continue
-        plane = box[dr]
-        r = random.uniform(0.25, 0.75)
-        g = random.uniform(0.25, 0.75)
-        b = random.uniform(0.25, 0.75)
-        objects.append(ray_tracer.Plane(plane['p'], plane['n'], Vector(r, g, b)))
+    right = 90
+    left = -90
+    up = 75
+    down = -65
+    back = 240
 
-    model = ray_tracer.Model(Vector(2 * m, +15, 0), m, color=Vector(0.7, 0.4, 0.1), file='model.txt')
+    properties = [
+        ray_tracer.Properties(Vector(0.3, 0.6, 0.3)),  # right
+        ray_tracer.Properties(Vector(0.6, 0.3, 0.3)),  # left
+        ray_tracer.Properties(Vector(0.4, 0.3, 0.3)),  # up
+        ray_tracer.Properties(Vector(0.4, 0.3, 0.3)),  # down
+        ray_tracer.Properties(Vector(0.4, 0.3, 0.3)),  # back
+
+        ray_tracer.Properties(Vector(0.83, 0.68, 0.21), 0.2),
+        ray_tracer.Properties(Vector(0, 0, 0), reflective=1),
+        ray_tracer.Properties(Vector(0, 0, 0), reflective=1),
+        ray_tracer.Properties(Vector(1, 0.5, 0.5), 0, 0.8, 1.75)
+    ]
+
+    r1 = 15
+    r2 = 25
+    r3 = 20
+
+    objects = [
+        ray_tracer.Plane(Vector(0, 0, right), Vector(0, 0, -1), properties[0]),  # right
+        ray_tracer.Plane(Vector(0, 0, left), Vector(0, 0, 1), properties[1]),  # left
+        ray_tracer.Plane(Vector(0, up, 0), Vector(0, -1, 0), properties[2]),  # up
+        ray_tracer.Plane(Vector(0, down, 0), Vector(0, 1, 0), properties[3]),  # down
+        ray_tracer.Plane(Vector(back, 0, 0), Vector(-1, 0, 0), properties[4]),  # back
+
+        ray_tracer.Sphere(Vector(0.6 * back, down + r1, right / 3), r1, properties[5]),
+        ray_tracer.Sphere(Vector(0.7 * back, down + r2, left + 1.5 * r2), r2, properties[6]),
+        ray_tracer.Plane(Vector(back - 30, up - 30, right - 30), Vector(-1, -1.5, -1), properties[7]),
+        ray_tracer.Sphere(Vector(0.45 * back - 5, down + 1 + 30 * 2 - 10, 3), r3, properties[8])
+    ]
+
+    pi = 3.141569
+    model = ray_tracer.Model(Vector(0.45 * back - 5, down + 1, 3), 30, ray_tracer.Properties(Vector(0.3, 0.3, 1), 0.1, 0.9, 1.3, rotation=(0, 0.7, 0)), file='model.txt')
     triags = model.get_triangles()
     objects += triags
-    
+
+    lights = []
+    coef = 900000
+    lights.append(ray_tracer.Light(Vector(-100, up / 2, right / 2), Vector(1, 1, 1), distance_coef=coef*1.2))
+
+    lights.append(ray_tracer.Light(Vector(back - 40, 0, left + 50), Vector(1, 1, 1), distance_coef=coef / 15))
+    objects.append(ray_tracer.Sphere(lights[-1].o, 5, ray_tracer.Properties(Vector(1, 1, 1), 0, 0.5, 1, constant_color=True)))
+
     frames = []
     for frame_index in range(0, frame_count):
         # k = frame_index
@@ -53,16 +82,10 @@ def main():
             frame_start_time = time()
             print('Frame_{} started'.format(frame_index))
 
-        camera = ray_tracer.Camera(Vector(-m/2, 0, 0), Vector(1, 0, 0), screen_distance, width, height, resolution_coef)
-        
-        lights = []
-        coef = 410000
-        lights.append(ray_tracer.Light(Vector(m/2.6, 10, 10), Vector(1, 1, 1), distance_coef=coef))
-    
         frame = ray_tracer.render_image(camera, objects, lights, depth, verbose)
         if camera.res_x < min_frame_width or camera.res_y < min_frame_height:
             frame = frame.resize((min_frame_width, min_frame_height), Image.NEAREST)
-        
+
         if to_show:
             frame.show()
         if verbose:
@@ -72,7 +95,7 @@ def main():
 
         if to_complete_loop:
             frame.save('frame{}.png'.format(frame_count * 2 - frame_index - 1))
-    
+
     if to_complete_loop:
         if verbose:
             print('Completing loop')

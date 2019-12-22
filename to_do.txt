@@ -1,4 +1,4 @@
 to_do
 
 !!! PARAMS INSTEAD OF color, reflective...
-two-sided planes
+two-sided planes (not camera oriented!)

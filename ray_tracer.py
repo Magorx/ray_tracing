@@ -33,14 +33,52 @@ class Ray:
         return self.d.__repr__()
 
 
-class Sphere:
-    def __init__(self, center, radius, color, reflective=0, refractive_coef=1, refractive=0):
-        self.c = center
-        self.r = radius
+class Properties:
+    def __init__(self, color=Vector(0, 0, 0), reflective=0, refractive=0, refractive_coef=1, type=FILL, scale=1,
+                 rotation=(0, 0, 0), constant_color=False):
         self.color = color
         self.reflective = reflective
-        self.refractive_coef = refractive_coef
         self.refractive = refractive
+        self.refractive_coef = refractive_coef
+        self.type = type
+        self.scale = scale
+        self.rotation = rotation
+        self.constant_color = constant_color
+
+    def cp(self):
+        return Properties(self.color,
+                          self.reflective,
+                          self.refractive,
+                          self.refractive_coef,
+                          self.type,
+                          self.scale,
+                          self.rotation,
+                          self.constant_color)
+
+
+class Sphere:
+    def __init__(self, center, radius, properties):
+        self.c = center
+        self.r = radius
+
+        props = properties
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.properties = props
+
+    def update_properties(self, properties=None):
+        if properties:
+            props = properties
+        else:
+            props = self.properties
+
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.properties = props
     
     def intersect(self, ray):
         c_o = ray.o - self.c
@@ -69,17 +107,34 @@ class Sphere:
 
 
 class Plane:
-    def __init__(self, point, normal, color, reflective=0, refractive_coef=1, refractive=0, type=FILL, scale=1):
+    def __init__(self, point, normal, properties):
         self.p = point
         self.n = normal
-        self.color = color
-        self.reflective = reflective
-        self.refractive_coef = refractive_coef
-        self.refractive = refractive
-        self.type = type
-        self.scale = scale
+
+        props = properties
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.type = props.type
+        self.scale = props.scale
+        self.properties = props
 
         self.stable_normal = False
+
+    def update_properties(self, properties=None):
+        if properties:
+            props = properties
+        else:
+            props = self.properties
+
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.type = props.type
+        self.scale = props.scale
+        self.properties = props
 
     def __repr__(self):
         return 'Plane[{}, {}]'.format(self.p, self.n)
@@ -101,21 +156,41 @@ class Plane:
 
 
 class Triangle:
-    def __init__(self, p1, p2, p3, color, reflective=0, refractive_coef=1, refractive=0, type=FILL, scale=1):
+    def __init__(self, p1, p2, p3, properties):
         self.p1 = p1
         self.p2 = p2
         self.p3 = p3
         self.normal = (p2-p1).cross(p3-p1).normal()
-        self.plane = Plane(p1, self.normal, color, reflective, refractive_coef, refractive, type, scale)
-        self.color = color
-        self.reflective = reflective
-        self.refractive_coef = refractive_coef
-        self.refractive = refractive
-        self.type = type
-        self.scale = scale
+        self.plane = Plane(p1, self.normal, properties)
+
+        props = properties
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.type = props.type
+        self.scale = props.scale
+        self.properties = props
         
         self.square = (p2 - p1).cross(p3 - p1).len() / 2
-    
+
+    def update_properties(self, properties=None):
+        if properties:
+            props = properties
+        else:
+            props = self.properties
+
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.type = props.type
+        self.scale = props.scale
+        self.properties = props
+
+    def __repr__(self):
+        return 'Triangle[{}, {}, {}]'.format(self.p1, self.p2, self.p3)
+
     def is_point_inside(self, p):
         if abs((p - self.p1).dot(self.plane.n)) > EPS:
             return False
@@ -132,6 +207,9 @@ class Triangle:
     def intersect(self, ray):
         p = self.plane.intersect(ray)
         if p.d == -1:
+            self.plane.n *= -1
+            p = self.plane.intersect(ray)
+        if p.d < 0:
             return p
 
         if self.is_point_inside(p.p):
@@ -173,7 +251,7 @@ class Light:
             
             intersection = test_ray(Ray(point + p_o.normal(), p_o.normal()), objects, [obj])
             dist = intersection.d            
-            if dist != -1 and dist < p_o.len() and not intersection.obj.refractive_coef:
+            if dist != -1 and dist < p_o.len() and not intersection.obj.refractive:
                 return Vector(0, 0, 0)
             else:
                 reflection_coef = obj.reflective
@@ -223,6 +301,9 @@ def trace(ray, objects, lights, depth=1):
     reflected_color = Vector(0, 0, 0)
     refracted_color = Vector(0, 0, 0)
 
+    if obj.properties.constant_color:
+        return color
+
     '''
     # YOU CAN ADD SOME TEXTURES HERE! it was a nice mistake
     if isinstance(obj, Sphere) and obj == objects[0]:
@@ -265,8 +346,8 @@ def trace(ray, objects, lights, depth=1):
         if k < 0:
             pass
         else:
-            refratced_vector = ray.d * ratio + normal * (ratio * cs - sqrt(k))
-            refracted_ray = Ray(intersection.p + refratced_vector * EPS, refratced_vector)
+            refracted_vector = ray.d * ratio + normal * (ratio * cs - sqrt(k))
+            refracted_ray = Ray(intersection.p + refracted_vector * EPS, refracted_vector)
             refracted_color = trace(refracted_ray, objects, lights, depth - 1)
     color *= light_effect * (1 - obj.refractive) * (1 - obj.reflective)
     color += reflected_color + refracted_color * obj.refractive
@@ -344,7 +425,7 @@ class Scene:
 
 
 class Model:
-    def __init__(self, center, coef, points=[], links=[], color=Vector(1, 1, 1), reflective=0, refractive_coef=1, refractive=0, type=FILL, scale=1, rotation=[0, 0, 0], file=None):
+    def __init__(self, center, coef, properties, points=(), links=(), file=None):
         self.center = center
         self.coef = coef
 
@@ -368,23 +449,25 @@ class Model:
         else:
             self.points = points
             self.links = links
-        
-        self.color = color
-        self.reflective = reflective
-        self.refractive_coef = refractive_coef
-        self.refractive = refractive
-        self.type = type
-        self.scale = scale
-        self.rot = rotation
+
+        props = properties
+        self.color = props.color
+        self.reflective = props.reflective
+        self.refractive_coef = props.refractive_coef
+        self.refractive = props.refractive
+        self.type = props.type
+        self.scale = props.scale
+        self.rotation = props.rotation
+        self.properties = props
     
     def get_triangles(self):
         triangles = []
         for link in self.links:
-            p0 = rot(self.points[link[0]] * self.coef, rotation=self.rot) + self.center
+            p0 = rot(self.points[link[0]] * self.coef, rotation=self.rotation) + self.center
             for i in range(1, len(link) - 1):
-                p1 = rot(self.points[link[i]] * self.coef, rotation=self.rot) + self.center
-                p2 = rot(self.points[link[i + 1]] * self.coef, rotation=self.rot) + self.center
-                triangle = Triangle(p0, p1, p2, self.color, reflective=self.reflective, refractive_coef=self.refractive_coef, refractive=self.refractive, type=self.type, scale=self.scale)
+                p1 = rot(self.points[link[i]] * self.coef, rotation=self.rotation) + self.center
+                p2 = rot(self.points[link[i + 1]] * self.coef, rotation=self.rotation) + self.center
+                triangle = Triangle(p0, p1, p2, self.properties)
                 triangles.append(triangle)
         return triangles
 
@@ -418,6 +501,19 @@ def generate_box_for_spheres(objects, indents=(0, 0, 0, 0, 0, 0), indent=None):
 
     box = {'right': right, 'left': left, 'up': up, 'down': down, 'back': back, 'front': front}
     return box
+
+
+'''
+box = ray_tracer.generate_box_for_spheres(objects, indents=[5, 10, 0, -10, 5, 0])
+for dr in box:
+    if dr == 'front':
+        continue
+    plane = box[dr]
+    r = random.uniform(0.3, 0.7)
+    g = random.uniform(0.3, 0.7)
+    b = random.uniform(0.3, 0.7)
+    objects.append(ray_tracer.Plane(plane['p'], plane['n'], Vector(r, g, b)))
+'''
 
 
 def main():
